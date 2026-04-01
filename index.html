@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Viz - Immersive Coding Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0f;
+            color: #fff;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        #container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(10, 10, 15, 0.85);
+            padding: 16px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        #info h1 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #4A90D9;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+        
+        #info p {
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+        }
+        
+        #connection-status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+            background: #666;
+        }
+        
+        #connection-status.connected {
+            background: #6BCB77;
+            box-shadow: 0 0 8px #6BCB77;
+        }
+        
+        #connection-status.disconnected {
+            background: #FF6B6B;
+        }
+        
+        #agent-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(10, 10, 15, 0.85);
+            padding: 16px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            max-height: 300px;
+            overflow-y: auto;
+            min-width: 250px;
+        }
+        
+        #agent-panel h2 {
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .agent-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        
+        .agent-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .agent-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        
+        .agent-info {
+            flex: 1;
+        }
+        
+        .agent-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: #fff;
+        }
+        
+        .agent-status {
+            font-size: 11px;
+            color: rgba(255,255,255,0.4);
+            margin-top: 2px;
+        }
+        
+        .agent-type {
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-left: 8px;
+        }
+        
+        .agent-type.permanent {
+            background: rgba(74, 144, 217, 0.2);
+            color: #4A90D9;
+        }
+        
+        .agent-type.ephemeral {
+            background: rgba(255, 107, 107, 0.2);
+            color: #FF6B6B;
+        }
+        
+        #thought-bubble {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            background: rgba(10, 10, 15, 0.9);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            max-width: 400px;
+            display: none;
+        }
+        
+        #thought-bubble.visible {
+            display: block;
+        }
+        
+        #thought-bubble h3 {
+            font-size: 12px;
+            color: #4A90D9;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+        
+        #thought-bubble h3::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4A90D9;
+            margin-right: 8px;
+        }
+        
+        #thought-bubble .content {
+            font-size: 13px;
+            line-height: 1.6;
+            color: rgba(255,255,255,0.8);
+        }
+        
+        #thought-bubble .preview {
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+            margin-top: 8px;
+            font-style: italic;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .control-btn {
+            background: rgba(10, 10, 15, 0.85);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.7);
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            backdrop-filter: blur(10px);
+        }
+        
+        .control-btn:hover {
+            background: rgba(74, 144, 217, 0.2);
+            border-color: #4A90D9;
+            color: #fff;
+        }
+        
+        #voice-btn {
+            position: absolute;
+            bottom: 100px;
+            right: 20px;
+            z-index: 100;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(74, 144, 217, 0.2);
+            border: 2px solid #4A90D9;
+            color: #4A90D9;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        #voice-btn:hover {
+            background: #4A90D9;
+            color: #fff;
+        }
+        
+        #voice-btn.recording {
+            background: #FF6B6B;
+            border-color: #FF6B6B;
+            color: #fff;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    
+    <div id="info">
+        <h1>AGENT VIZ</h1>
+        <span id="connection-status"></span>
+        <span id="connection-text">Connecting...</span>
+    </div>
+    
+    <div id="agent-panel">
+        <h2>Active Agents</h2>
+        <div id="agent-list"></div>
+    </div>
+    
+    <div id="thought-bubble">
+        <h3 id="bubble-title">Agent</h3>
+        <div class="content" id="bubble-content"></div>
+        <div class="preview" id="bubble-preview"></div>
+    </div>
+    
+    <button id="voice-btn">🎤</button>
+    
+    <div id="controls">
+        <button class="control-btn" onclick="resetCamera()">Reset View</button>
+        <button class="control-btn" onclick="toggleRotation()">Auto-Rotate</button>
+        <button class="control-btn" onclick="spawnEphemeral()">+ Agent</button>
+    </div>
+    
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        
+        // ============ SCENE SETUP ============
+        const container = document.getElementById('container');
+        
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a0f);
+        scene.fog = new THREE.Fog(0x0a0a0f, 10, 50);
+        
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 8, 15);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+        
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2.1;
+        
+        // ============ LIGHTING ============
+        const ambientLight = new THREE.AmbientLight(0x404060, 0.5);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(10, 20, 10);
+        scene.add(directionalLight);
+        
+        const pointLight1 = new THREE.PointLight(0x4A90D9, 1, 30);
+        pointLight1.position.set(-5, 5, 5);
+        scene.add(pointLight1);
+        
+        const pointLight2 = new THREE.PointLight(0x7B68EE, 0.5, 30);
+        pointLight2.position.set(5, 5, -5);
+        scene.add(pointLight2);
+        
+        // ============ GRID FLOOR ============
+        const gridHelper = new THREE.GridHelper(40, 40, 0x222233, 0x111122);
+        scene.add(gridHelper);
+        
+        // ============ AGENTS ============
+        const agents = {};
+        const agentMeshes = {};
+        const agentGroups = {};
+        let autoRotate = true;
+        
+        // Shape geometries
+        const geometries = {
+            sphere: new THREE.SphereGeometry(0.5, 32, 32),
+            octahedron: new THREE.OctahedronGeometry(0.5),
+            icosahedron: new THREE.IcosahedronGeometry(0.5),
+            tetrahedron: new THREE.TetrahedronGeometry(0.5),
+            dodecahedron: new THREE.DodecahedronGeometry(0.5)
+        };
+        
+        function createAgentMesh(agent) {
+            const geometry = geometries[agent.shape] || geometries.sphere;
+            
+            const material = new THREE.MeshPhongMaterial({
+                color: new THREE.Color(agent.color),
+                emissive: new THREE.Color(agent.color),
+                emissiveIntensity: 0.2,
+                transparent: true,
+                opacity: 0.9,
+                wireframe: false
+            });
+            
+            const mesh = new THREE.Mesh(geometry, material);
+            
+            // Add glow ring
+            const ringGeometry = new THREE.RingGeometry(0.6, 0.8, 32);
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: new THREE.Color(agent.color),
+                transparent: true,
+                opacity: 0.3,
+                side: THREE.DoubleSide
+            });
+            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.y = -0.4;
+            
+            const group = new THREE.Group();
+            group.add(mesh);
+            group.add(ring);
+            
+            // Add floating animation offset
+            group.userData.floatOffset = Math.random() * Math.PI * 2;
+            group.userData.baseY = 0;
+            
+            return group;
+        }
+        
+        function addAgent(agentData) {
+            const agent = typeof agentData === 'string' ? agentData : agentData;
+            
+            if (agents[agent.id]) return; // Already exists
+            
+            agents[agent.id] = agent;
+            const group = createAgentMesh(agent);
+            agentGroups[agent.id] = group;
+            
+            // Position in a circle
+            const count = Object.keys(agents).length;
+            const angle = (count - 1) * (Math.PI * 2 / 10);
+            const radius = 5;
+            group.position.x = Math.cos(angle) * radius;
+            group.position.z = Math.sin(angle) * radius;
+            group.userData.baseY = 0;
+            
+            scene.add(group);
+            
+            updateAgentList();
+        }
+        
+        function removeAgent(agentId) {
+            const group = agentGroups[agentId];
+            if (group) {
+                scene.remove(group);
+                delete agentGroups[agentId];
+                delete agents[agentId];
+            }
+            updateAgentList();
+        }
+        
+        function updateAgent(agentData) {
+            const agent = agentData;
+            agents[agent.id] = agent;
+            
+            const group = agentGroups[agent.id];
+            if (!group) {
+                addAgent(agent);
+                return;
+            }
+            
+            // Update color based on status
+            const mesh = group.children[0];
+            if (mesh && mesh.material) {
+                const baseColor = new THREE.Color(agent.color);
+                
+                switch(agent.status) {
+                    case 'thinking':
+                        mesh.material.emissiveIntensity = 0.5;
+                        break;
+                    case 'working':
+                        mesh.material.emissiveIntensity = 0.8;
+                        break;
+                    case 'idle':
+                        mesh.material.emissiveIntensity = 0.2;
+                        break;
+                    case 'error':
+                        mesh.material.emissive.setHex(0xFF6B6B);
+                        mesh.material.emissiveIntensity = 1;
+                        break;
+                    default:
+                        mesh.material.emissiveIntensity = 0.2;
+                }
+            }
+            
+            // Update thought bubble if this agent is selected
+            const bubble = document.getElementById('thought-bubble');
+            if (bubble.dataset.agentId === agent.id && agent.message_preview) {
+                document.getElementById('bubble-preview').textContent = agent.message_preview;
+            }
+            
+            updateAgentList();
+        }
+        
+        function updateAgentList() {
+            const list = document.getElementById('agent-list');
+            list.innerHTML = '';
+            
+            for (const id in agents) {
+                const agent = agents[id];
+                const item = document.createElement('div');
+                item.className = 'agent-item';
+                item.style.cursor = 'pointer';
+                item.onclick = () => selectAgent(agent);
+                
+                const typeClass = agent.agent_type === 'permanent' ? 'permanent' : 'ephemeral';
+                
+                item.innerHTML = `
+                    <div class="agent-dot" style="background: ${agent.color}; box-shadow: 0 0 8px ${agent.color}"></div>
+                    <div class="agent-info">
+                        <div class="agent-name">${agent.name}</div>
+                        <div class="agent-status">${agent.role} · ${agent.status}</div>
+                    </div>
+                    <span class="agent-type ${typeClass}">${typeClass}</span>
+                `;
+                
+                list.appendChild(item);
+            }
+        }
+        
+        function selectAgent(agent) {
+            const bubble = document.getElementById('thought-bubble');
+            bubble.classList.add('visible');
+            bubble.dataset.agentId = agent.id;
+            
+            document.getElementById('bubble-title').textContent = agent.name;
+            document.getElementById('bubble-title').style.color = agent.color;
+            document.getElementById('bubble-content').textContent = `Role: ${agent.role}`;
+            document.getElementById('bubble-preview').textContent = agent.current_task || 'No current task';
+            
+            // Highlight in scene
+            const group = agentGroups[agent.id];
+            if (group) {
+                // Camera will follow this agent
+                const targetPos = group.position.clone();
+                targetPos.y = 2;
+                controls.target.copy(targetPos);
+            }
+        }
+        
+        window.resetCamera = function() {
+            camera.position.set(0, 8, 15);
+            controls.target.set(0, 0, 0);
+        };
+        
+        window.toggleRotation = function() {
+            autoRotate = !autoRotate;
+            controls.autoRotate = autoRotate;
+            controls.autoRotateSpeed = 0.5;
+        };
+        
+        window.spawnEphemeral = function() {
+            // Demo: spawn a temporary agent
+            const id = 'ephem-' + Date.now();
+            const colors = ['#FF8C42', '#FFD93D', '#6BCB77'];
+            const roles = ['file-ops', 'web-search', 'data-analysis'];
+            const shapes = ['dodecahedron', 'tetrahedron', 'icosahedron'];
+            
+            const idx = Math.floor(Math.random() * 3);
+            
+            ws.send(JSON.stringify({
+                type: 'command',
+                command: 'spawn',
+                agent: {
+                    id: id,
+                    name: 'Temp-' + Math.floor(Math.random() * 100),
+                    role: roles[idx],
+                    color: colors[idx],
+                    shape: shapes[idx],
+                    agent_type: 'ephemeral'
+                }
+            }));
+        };
+        
+        // ============ WEBSOCKET CONNECTION ============
+        let ws;
+        
+        function connect() {
+            const status = document.getElementById('connection-status');
+            const text = document.getElementById('connection-text');
+            
+            try {
+                ws = new WebSocket('ws://localhost:8765');
+                
+                ws.onopen = () => {
+                    status.className = 'connected';
+                    text.textContent = 'Connected';
+                    console.log('Connected to Bridge API');
+                };
+                
+                ws.onclose = () => {
+                    status.className = 'disconnected';
+                    text.textContent = 'Disconnected - Reconnecting...';
+                    console.log('Disconnected, retrying in 2s...');
+                    setTimeout(connect, 2000);
+                };
+                
+                ws.onerror = (err) => {
+                    console.error('WebSocket error:', err);
+                };
+                
+                ws.onmessage = (event) => {
+                    const msg = JSON.parse(event.data);
+                    handleMessage(msg);
+                };
+                
+            } catch (e) {
+                console.error('Connection error:', e);
+                setTimeout(connect, 2000);
+            }
+        }
+        
+        function handleMessage(msg) {
+            if (msg.type === 'init') {
+                // Initialize with current agents
+                for (const agentData of msg.data.agents) {
+                    addAgent(agentData);
+                }
+            } else if (msg.type === 'agent_event') {
+                const event = msg.data;
+                
+                if (event.event_type === 'agent_spawned') {
+                    addAgent(event.agent);
+                } else if (event.event_type === 'agent_updated') {
+                    updateAgent(event.agent);
+                } else if (event.event_type === 'agent_complete') {
+                    // Ephemeral agents may be removed
+                    if (event.agent.agent_type === 'ephemeral') {
+                        setTimeout(() => removeAgent(event.agent.id), 3000);
+                    }
+                    updateAgent(event.agent);
+                } else if (event.event_type === 'agent_error') {
+                    updateAgent(event.agent);
+                }
+            }
+        }
+        
+        // ============ ANIMATION LOOP ============
+        const clock = new THREE.Clock();
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const elapsed = clock.getElapsedTime();
+            
+            // Animate all agent groups (floating)
+            for (const id in agentGroups) {
+                const group = agentGroups[id];
+                const offset = group.userData.floatOffset;
+                group.position.y = Math.sin(elapsed * 1.5 + offset) * 0.15;
+                group.rotation.y = elapsed * 0.3 + offset;
+            }
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        animate();
+        
+        // ============ RESIZE HANDLER ============
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // ============ VOICE BUTTON ============
+        const voiceBtn = document.getElementById('voice-btn');
+        let recording = false;
+        
+        voiceBtn.addEventListener('click', () => {
+            recording = !recording;
+            voiceBtn.classList.toggle('recording', recording);
+            voiceBtn.textContent = recording ? '⏹' : '🎤';
+            
+            // TODO: Implement WebRTC voice capture
+            if (recording) {
+                console.log('Voice recording started...');
+            } else {
+                console.log('Voice recording stopped');
+            }
+        });
+        
+        // ============ START ============
+        connect();
+        
+        // For demo, add some agents if bridge isn't running
+        setTimeout(() => {
+            if (Object.keys(agents).length === 0) {
+                console.log('Bridge not available, adding demo agents');
+                addAgent({ id: 'bit', name: 'Bit', role: 'assistant', agent_type: 'permanent', color: '#4A90D9', shape: 'sphere', status: 'idle' });
+                addAgent({ id: 'coder', name: 'Coder', role: 'coding', agent_type: 'permanent', color: '#7B68EE', shape: 'octahedron', status: 'idle' });
+                addAgent({ id: 'researcher', name: 'Researcher', role: 'research', agent_type: 'permanent', color: '#20B2AA', shape: 'icosahedron', status: 'idle' });
+            }
+        }, 3000);
+    </script>
+</body>
+</html>
