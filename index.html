@@ -78,9 +78,9 @@
             border-radius: 12px;
             border: 1px solid rgba(255,255,255,0.1);
             backdrop-filter: blur(10px);
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
-            min-width: 250px;
+            min-width: 280px;
         }
         
         #agent-panel h2 {
@@ -96,21 +96,27 @@
             display: flex;
             align-items: center;
             margin-bottom: 10px;
-            padding: 8px 12px;
+            padding: 10px 14px;
             background: rgba(255,255,255,0.05);
             border-radius: 8px;
             transition: background 0.2s;
+            cursor: pointer;
         }
         
         .agent-item:hover {
             background: rgba(255,255,255,0.1);
         }
         
+        .agent-item.selected {
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
         .agent-dot {
-            width: 12px;
-            height: 12px;
+            width: 14px;
+            height: 14px;
             border-radius: 50%;
-            margin-right: 12px;
+            margin-right: 14px;
             flex-shrink: 0;
         }
         
@@ -119,24 +125,25 @@
         }
         
         .agent-name {
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 500;
             color: #fff;
         }
         
-        .agent-status {
+        .agent-role {
             font-size: 11px;
-            color: rgba(255,255,255,0.4);
+            color: rgba(255,255,255,0.5);
             margin-top: 2px;
+            text-transform: capitalize;
         }
         
         .agent-type {
             font-size: 9px;
-            padding: 2px 6px;
+            padding: 3px 8px;
             border-radius: 4px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-left: 8px;
+            margin-left: 10px;
         }
         
         .agent-type.permanent {
@@ -154,48 +161,106 @@
             top: 20px;
             right: 20px;
             z-index: 100;
-            background: rgba(10, 10, 15, 0.9);
-            padding: 20px;
+            background: rgba(10, 10, 15, 0.92);
+            padding: 24px;
             border-radius: 16px;
             border: 1px solid rgba(255,255,255,0.1);
             backdrop-filter: blur(10px);
-            max-width: 400px;
+            max-width: 420px;
             display: none;
+            min-height: 200px;
         }
         
         #thought-bubble.visible {
             display: block;
         }
         
-        #thought-bubble h3 {
-            font-size: 12px;
-            color: #4A90D9;
-            margin-bottom: 8px;
+        #thought-bubble .header {
             display: flex;
             align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
         
-        #thought-bubble h3::before {
-            content: '';
-            display: inline-block;
-            width: 8px;
-            height: 8px;
+        #thought-bubble .header-dot {
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
-            background: #4A90D9;
-            margin-right: 8px;
+            margin-right: 12px;
         }
         
-        #thought-bubble .content {
-            font-size: 13px;
-            line-height: 1.6;
-            color: rgba(255,255,255,0.8);
+        #thought-bubble h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
         }
         
-        #thought-bubble .preview {
+        #thought-bubble .role-badge {
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 4px;
+            margin-left: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        #thought-bubble .status {
             font-size: 12px;
             color: rgba(255,255,255,0.5);
-            margin-top: 8px;
-            font-style: italic;
+            margin-top: 4px;
+        }
+        
+        #thought-bubble .section {
+            margin-bottom: 16px;
+        }
+        
+        #thought-bubble .section-title {
+            font-size: 10px;
+            color: rgba(255,255,255,0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+        
+        #thought-bubble .expertise-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        
+        #thought-bubble .expertise-tag {
+            font-size: 11px;
+            padding: 4px 10px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 4px;
+            color: rgba(255,255,255,0.7);
+        }
+        
+        #thought-bubble .current-task {
+            font-size: 13px;
+            color: rgba(255,255,255,0.8);
+            line-height: 1.6;
+        }
+        
+        #thought-bubble .close-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: rgba(255,255,255,0.5);
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        
+        #thought-bubble .close-btn:hover {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
         }
         
         #controls {
@@ -225,40 +290,49 @@
             color: #fff;
         }
         
-        #voice-btn {
+        #message-input {
             position: absolute;
-            bottom: 100px;
-            right: 20px;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
             z-index: 100;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: rgba(74, 144, 217, 0.2);
-            border: 2px solid #4A90D9;
-            color: #4A90D9;
-            font-size: 20px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
+            display: none;
+            background: rgba(10, 10, 15, 0.92);
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            width: 400px;
         }
         
-        #voice-btn:hover {
-            background: #4A90D9;
+        #message-input.visible {
+            display: block;
+        }
+        
+        #message-input input {
+            width: 100%;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            padding: 12px 16px;
             color: #fff;
+            font-size: 14px;
+            outline: none;
         }
         
-        #voice-btn.recording {
-            background: #FF6B6B;
-            border-color: #FF6B6B;
-            color: #fff;
-            animation: pulse 1s infinite;
+        #message-input input:focus {
+            border-color: #4A90D9;
         }
         
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+        #message-input input::placeholder {
+            color: rgba(255,255,255,0.4);
+        }
+        
+        #message-input .hint {
+            font-size: 10px;
+            color: rgba(255,255,255,0.3);
+            margin-top: 8px;
+            text-align: center;
         }
         
         ::-webkit-scrollbar {
@@ -290,17 +364,36 @@
     </div>
     
     <div id="thought-bubble">
-        <h3 id="bubble-title">Agent</h3>
-        <div class="content" id="bubble-content"></div>
-        <div class="preview" id="bubble-preview"></div>
+        <button class="close-btn" onclick="closeBubble()">×</button>
+        <div class="header">
+            <div class="header-dot" id="bubble-dot"></div>
+            <div>
+                <h3 id="bubble-title">Agent</h3>
+                <div class="status" id="bubble-status">Idle</div>
+            </div>
+            <span class="role-badge" id="bubble-role">role</span>
+        </div>
+        
+        <div class="section" id="expertise-section">
+            <div class="section-title">Expertise</div>
+            <div class="expertise-list" id="expertise-list"></div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">Current Task</div>
+            <div class="current-task" id="bubble-task">No active task</div>
+        </div>
     </div>
     
-    <button id="voice-btn">🎤</button>
+    <div id="message-input">
+        <input type="text" id="msg-field" placeholder="Send a message to this agent...">
+        <div class="hint">Press Enter to send, Escape to cancel</div>
+    </div>
     
     <div id="controls">
         <button class="control-btn" onclick="resetCamera()">Reset View</button>
         <button class="control-btn" onclick="toggleRotation()">Auto-Rotate</button>
-        <button class="control-btn" onclick="spawnEphemeral()">+ Agent</button>
+        <button class="control-btn" onclick="spawnEphemeral()">+ Worker</button>
     </div>
     
     <script type="importmap">
@@ -321,10 +414,10 @@
         
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0a0a0f);
-        scene.fog = new THREE.Fog(0x0a0a0f, 10, 50);
+        scene.fog = new THREE.Fog(0x0a0a0f, 15, 60);
         
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 8, 15);
+        camera.position.set(0, 8, 18);
         
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -335,6 +428,8 @@
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
         controls.maxPolarAngle = Math.PI / 2.1;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.3;
         
         // ============ LIGHTING ============
         const ambientLight = new THREE.AmbientLight(0x404060, 0.5);
@@ -344,31 +439,32 @@
         directionalLight.position.set(10, 20, 10);
         scene.add(directionalLight);
         
-        const pointLight1 = new THREE.PointLight(0x4A90D9, 1, 30);
-        pointLight1.position.set(-5, 5, 5);
-        scene.add(pointLight1);
+        // Colored accent lights
+        const accentLight1 = new THREE.PointLight(0x9B59B6, 0.8, 25);
+        accentLight1.position.set(-8, 4, 8);
+        scene.add(accentLight1);
         
-        const pointLight2 = new THREE.PointLight(0x7B68EE, 0.5, 30);
-        pointLight2.position.set(5, 5, -5);
-        scene.add(pointLight2);
+        const accentLight2 = new THREE.PointLight(0x27AE60, 0.6, 25);
+        accentLight2.position.set(8, 4, -8);
+        scene.add(accentLight2);
         
         // ============ GRID FLOOR ============
-        const gridHelper = new THREE.GridHelper(40, 40, 0x222233, 0x111122);
+        const gridHelper = new THREE.GridHelper(50, 50, 0x222233, 0x111122);
         scene.add(gridHelper);
         
         // ============ AGENTS ============
         const agents = {};
-        const agentMeshes = {};
         const agentGroups = {};
+        let selectedAgentId = null;
         let autoRotate = true;
         
         // Shape geometries
         const geometries = {
-            sphere: new THREE.SphereGeometry(0.5, 32, 32),
-            octahedron: new THREE.OctahedronGeometry(0.5),
-            icosahedron: new THREE.IcosahedronGeometry(0.5),
-            tetrahedron: new THREE.TetrahedronGeometry(0.5),
-            dodecahedron: new THREE.DodecahedronGeometry(0.5)
+            sphere: new THREE.SphereGeometry(0.6, 32, 32),
+            octahedron: new THREE.OctahedronGeometry(0.6),
+            icosahedron: new THREE.IcosahedronGeometry(0.6),
+            tetrahedron: new THREE.TetrahedronGeometry(0.6),
+            dodecahedron: new THREE.DodecahedronGeometry(0.6)
         };
         
         function createAgentMesh(agent) {
@@ -379,54 +475,70 @@
                 emissive: new THREE.Color(agent.color),
                 emissiveIntensity: 0.2,
                 transparent: true,
-                opacity: 0.9,
-                wireframe: false
+                opacity: 0.95,
+                shininess: 80
             });
             
             const mesh = new THREE.Mesh(geometry, material);
             
-            // Add glow ring
-            const ringGeometry = new THREE.RingGeometry(0.6, 0.8, 32);
+            // Add glow ring at base
+            const ringGeometry = new THREE.RingGeometry(0.7, 1.0, 32);
             const ringMaterial = new THREE.MeshBasicMaterial({
                 color: new THREE.Color(agent.color),
                 transparent: true,
-                opacity: 0.3,
+                opacity: 0.25,
                 side: THREE.DoubleSide
             });
             const ring = new THREE.Mesh(ringGeometry, ringMaterial);
             ring.rotation.x = -Math.PI / 2;
-            ring.position.y = -0.4;
+            ring.position.y = -0.5;
+            
+            // Add a smaller inner ring
+            const innerRingGeometry = new THREE.RingGeometry(0.4, 0.5, 32);
+            const innerRing = new THREE.Mesh(innerRingGeometry, ringMaterial.clone());
+            innerRing.rotation.x = -Math.PI / 2;
+            innerRing.position.y = -0.49;
             
             const group = new THREE.Group();
             group.add(mesh);
             group.add(ring);
+            group.add(innerRing);
             
-            // Add floating animation offset
             group.userData.floatOffset = Math.random() * Math.PI * 2;
             group.userData.baseY = 0;
+            group.userData.mesh = mesh;
+            group.userData.ring = ring;
             
             return group;
         }
         
         function addAgent(agentData) {
-            const agent = typeof agentData === 'string' ? agentData : agentData;
+            if (agents[agentData.id]) return;
             
-            if (agents[agent.id]) return; // Already exists
+            agents[agentData.id] = agentData;
+            const group = createAgentMesh(agentData);
+            agentGroups[agentData.id] = group;
             
-            agents[agent.id] = agent;
-            const group = createAgentMesh(agent);
-            agentGroups[agent.id] = group;
+            // Arrange in a circle
+            const agentList = Object.values(agents);
+            const permanentCount = agentList.filter(a => a.agent_type === 'permanent').length;
+            const count = agentList.length;
             
-            // Position in a circle
-            const count = Object.keys(agents).length;
-            const angle = (count - 1) * (Math.PI * 2 / 10);
-            const radius = 5;
+            // Sort so permanent agents are first
+            const sorted = [...agentList].sort((a, b) => {
+                if (a.agent_type !== b.agent_type) {
+                    return a.agent_type === 'permanent' ? -1 : 1;
+                }
+                return 0;
+            });
+            
+            const idx = sorted.findIndex(a => a.id === agentData.id);
+            const angle = (idx - (count - 1) / 2) * (Math.PI * 2 / Math.max(count, 8));
+            const radius = count > 5 ? 6 : 5;
             group.position.x = Math.cos(angle) * radius;
             group.position.z = Math.sin(angle) * radius;
-            group.userData.baseY = 0;
             
             scene.add(group);
-            
             updateAgentList();
         }
         
@@ -441,43 +553,44 @@
         }
         
         function updateAgent(agentData) {
-            const agent = agentData;
-            agents[agent.id] = agent;
+            agents[agentData.id] = agentData;
             
-            const group = agentGroups[agent.id];
+            const group = agentGroups[agentData.id];
             if (!group) {
-                addAgent(agent);
+                addAgent(agentData);
                 return;
             }
             
-            // Update color based on status
-            const mesh = group.children[0];
-            if (mesh && mesh.material) {
-                const baseColor = new THREE.Color(agent.color);
-                
-                switch(agent.status) {
-                    case 'thinking':
-                        mesh.material.emissiveIntensity = 0.5;
-                        break;
-                    case 'working':
-                        mesh.material.emissiveIntensity = 0.8;
-                        break;
-                    case 'idle':
-                        mesh.material.emissiveIntensity = 0.2;
-                        break;
-                    case 'error':
-                        mesh.material.emissive.setHex(0xFF6B6B);
-                        mesh.material.emissiveIntensity = 1;
-                        break;
-                    default:
-                        mesh.material.emissiveIntensity = 0.2;
-                }
+            const mesh = group.userData.mesh;
+            const baseColor = new THREE.Color(agentData.color);
+            
+            // Update visual state based on status
+            switch(agentData.status) {
+                case 'thinking':
+                    mesh.material.emissiveIntensity = 0.5;
+                    mesh.material.emissive = baseColor;
+                    break;
+                case 'working':
+                    mesh.material.emissiveIntensity = 0.8;
+                    mesh.material.emissive = baseColor;
+                    break;
+                case 'idle':
+                    mesh.material.emissiveIntensity = 0.2;
+                    mesh.material.emissive = baseColor;
+                    break;
+                case 'error':
+                    mesh.material.emissive = new THREE.Color(0xFF6B6B);
+                    mesh.material.emissiveIntensity = 1;
+                    break;
+                default:
+                    mesh.material.emissiveIntensity = 0.2;
             }
             
-            // Update thought bubble if this agent is selected
-            const bubble = document.getElementById('thought-bubble');
-            if (bubble.dataset.agentId === agent.id && agent.message_preview) {
-                document.getElementById('bubble-preview').textContent = agent.message_preview;
+            // Update thought bubble if selected
+            if (selectedAgentId === agentData.id) {
+                document.getElementById('bubble-status').textContent = agentData.status;
+                document.getElementById('bubble-task').textContent = 
+                    agentData.current_task || 'No active task';
             }
             
             updateAgentList();
@@ -487,20 +600,31 @@
             const list = document.getElementById('agent-list');
             list.innerHTML = '';
             
-            for (const id in agents) {
-                const agent = agents[id];
+            const agentList = Object.values(agents);
+            
+            // Sort: permanent first, then ephemeral
+            agentList.sort((a, b) => {
+                if (a.agent_type !== b.agent_type) {
+                    return a.agent_type === 'permanent' ? -1 : 1;
+                }
+                return 0;
+            });
+            
+            for (const agent of agentList) {
                 const item = document.createElement('div');
-                item.className = 'agent-item';
-                item.style.cursor = 'pointer';
+                item.className = 'agent-item' + (selectedAgentId === agent.id ? ' selected' : '');
                 item.onclick = () => selectAgent(agent);
                 
                 const typeClass = agent.agent_type === 'permanent' ? 'permanent' : 'ephemeral';
+                const statusColor = agent.status === 'working' ? '#27AE60' : 
+                                   agent.status === 'thinking' ? '#F39C12' : 
+                                   agent.status === 'error' ? '#E74C3C' : 'rgba(255,255,255,0.4)';
                 
                 item.innerHTML = `
-                    <div class="agent-dot" style="background: ${agent.color}; box-shadow: 0 0 8px ${agent.color}"></div>
+                    <div class="agent-dot" style="background: ${agent.color}; box-shadow: 0 0 10px ${agent.color}"></div>
                     <div class="agent-info">
                         <div class="agent-name">${agent.name}</div>
-                        <div class="agent-status">${agent.role} · ${agent.status}</div>
+                        <div class="agent-role" style="color: ${statusColor}">${agent.role} · ${agent.status}</div>
                     </div>
                     <span class="agent-type ${typeClass}">${typeClass}</span>
                 `;
@@ -510,38 +634,65 @@
         }
         
         function selectAgent(agent) {
+            selectedAgentId = agent.id;
+            
             const bubble = document.getElementById('thought-bubble');
             bubble.classList.add('visible');
-            bubble.dataset.agentId = agent.id;
             
+            document.getElementById('bubble-dot').style.background = agent.color;
+            document.getElementById('bubble-dot').style.boxShadow = `0 0 10px ${agent.color}`;
             document.getElementById('bubble-title').textContent = agent.name;
-            document.getElementById('bubble-title').style.color = agent.color;
-            document.getElementById('bubble-content').textContent = `Role: ${agent.role}`;
-            document.getElementById('bubble-preview').textContent = agent.current_task || 'No current task';
+            document.getElementById('bubble-status').textContent = agent.status;
             
-            // Highlight in scene
+            const roleBadge = document.getElementById('bubble-role');
+            roleBadge.textContent = agent.role.replace('_', ' ');
+            roleBadge.style.background = agent.color + '33';
+            roleBadge.style.color = agent.color;
+            
+            // Show expertise if available
+            const expertiseSection = document.getElementById('expertise-section');
+            const expertiseList = document.getElementById('expertise-list');
+            if (agent.expertise && agent.expertise.length > 0) {
+                expertiseSection.style.display = 'block';
+                expertiseList.innerHTML = agent.expertise.map(e => 
+                    `<span class="expertise-tag">${e.replace('_', ' ')}</span>`
+                ).join('');
+            } else {
+                expertiseSection.style.display = 'none';
+            }
+            
+            document.getElementById('bubble-task').textContent = 
+                agent.current_task || 'No active task — click to send a message';
+            
+            // Focus camera on agent
             const group = agentGroups[agent.id];
             if (group) {
-                // Camera will follow this agent
                 const targetPos = group.position.clone();
                 targetPos.y = 2;
                 controls.target.copy(targetPos);
             }
+            
+            updateAgentList();
         }
         
+        window.closeBubble = function() {
+            const bubble = document.getElementById('thought-bubble');
+            bubble.classList.remove('visible');
+            selectedAgentId = null;
+            updateAgentList();
+        };
+        
         window.resetCamera = function() {
-            camera.position.set(0, 8, 15);
+            camera.position.set(0, 8, 18);
             controls.target.set(0, 0, 0);
         };
         
         window.toggleRotation = function() {
             autoRotate = !autoRotate;
             controls.autoRotate = autoRotate;
-            controls.autoRotateSpeed = 0.5;
         };
         
         window.spawnEphemeral = function() {
-            // Demo: spawn a temporary agent
             const id = 'ephem-' + Date.now();
             const colors = ['#FF8C42', '#FFD93D', '#6BCB77'];
             const roles = ['file-ops', 'web-search', 'data-analysis'];
@@ -549,18 +700,21 @@
             
             const idx = Math.floor(Math.random() * 3);
             
-            ws.send(JSON.stringify({
-                type: 'command',
-                command: 'spawn',
-                agent: {
-                    id: id,
-                    name: 'Temp-' + Math.floor(Math.random() * 100),
-                    role: roles[idx],
-                    color: colors[idx],
-                    shape: shapes[idx],
-                    agent_type: 'ephemeral'
-                }
-            }));
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'command',
+                    command: 'spawn',
+                    target: null,
+                    payload: {
+                        id: id,
+                        name: 'Worker-' + Math.floor(Math.random() * 100),
+                        role: roles[idx],
+                        color: colors[idx],
+                        shape: shapes[idx],
+                        agent_type: 'ephemeral'
+                    }
+                }));
+            }
         };
         
         // ============ WEBSOCKET CONNECTION ============
@@ -603,7 +757,6 @@
         
         function handleMessage(msg) {
             if (msg.type === 'init') {
-                // Initialize with current agents
                 for (const agentData of msg.data.agents) {
                     addAgent(agentData);
                 }
@@ -615,16 +768,50 @@
                 } else if (event.event_type === 'agent_updated') {
                     updateAgent(event.agent);
                 } else if (event.event_type === 'agent_complete') {
-                    // Ephemeral agents may be removed
-                    if (event.agent.agent_type === 'ephemeral') {
-                        setTimeout(() => removeAgent(event.agent.id), 3000);
-                    }
                     updateAgent(event.agent);
+                    // Remove ephemeral after a delay
+                    if (event.agent.agent_type === 'ephemeral') {
+                        setTimeout(() => removeAgent(event.agent.id), 5000);
+                    }
                 } else if (event.event_type === 'agent_error') {
                     updateAgent(event.agent);
                 }
             }
         }
+        
+        // ============ MESSAGE INPUT ============
+        const msgInput = document.getElementById('message-input');
+        const msgField = document.getElementById('msg-field');
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                msgInput.classList.remove('visible');
+                msgField.value = '';
+            }
+        });
+        
+        msgField.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && selectedAgentId) {
+                const message = msgField.value.trim();
+                if (message && ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'message',
+                        target: selectedAgentId,
+                        message: message
+                    }));
+                    msgField.value = '';
+                    msgInput.classList.remove('visible');
+                }
+            }
+        });
+        
+        // Click on task area to send message
+        document.getElementById('bubble-task').addEventListener('click', () => {
+            if (selectedAgentId) {
+                msgInput.classList.add('visible');
+                msgField.focus();
+            }
+        });
         
         // ============ ANIMATION LOOP ============
         const clock = new THREE.Clock();
@@ -634,12 +821,23 @@
             
             const elapsed = clock.getElapsedTime();
             
-            // Animate all agent groups (floating)
+            // Animate all agent groups
             for (const id in agentGroups) {
                 const group = agentGroups[id];
                 const offset = group.userData.floatOffset;
-                group.position.y = Math.sin(elapsed * 1.5 + offset) * 0.15;
-                group.rotation.y = elapsed * 0.3 + offset;
+                const mesh = group.userData.mesh;
+                
+                // Floating animation
+                group.position.y = Math.sin(elapsed * 1.2 + offset) * 0.2;
+                
+                // Gentle rotation
+                group.rotation.y = elapsed * 0.2 + offset;
+                
+                // Pulse emissive based on status
+                const agent = agents[id];
+                if (agent && agent.status === 'working') {
+                    mesh.material.emissiveIntensity = 0.6 + Math.sin(elapsed * 4) * 0.2;
+                }
             }
             
             controls.update();
@@ -655,33 +853,23 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
         
-        // ============ VOICE BUTTON ============
-        const voiceBtn = document.getElementById('voice-btn');
-        let recording = false;
-        
-        voiceBtn.addEventListener('click', () => {
-            recording = !recording;
-            voiceBtn.classList.toggle('recording', recording);
-            voiceBtn.textContent = recording ? '⏹' : '🎤';
-            
-            // TODO: Implement WebRTC voice capture
-            if (recording) {
-                console.log('Voice recording started...');
-            } else {
-                console.log('Voice recording stopped');
-            }
-        });
-        
         // ============ START ============
         connect();
         
-        // For demo, add some agents if bridge isn't running
+        // Fallback demo if bridge isn't running
         setTimeout(() => {
             if (Object.keys(agents).length === 0) {
                 console.log('Bridge not available, adding demo agents');
-                addAgent({ id: 'bit', name: 'Bit', role: 'assistant', agent_type: 'permanent', color: '#4A90D9', shape: 'sphere', status: 'idle' });
-                addAgent({ id: 'coder', name: 'Coder', role: 'coding', agent_type: 'permanent', color: '#7B68EE', shape: 'octahedron', status: 'idle' });
-                addAgent({ id: 'researcher', name: 'Researcher', role: 'research', agent_type: 'permanent', color: '#20B2AA', shape: 'icosahedron', status: 'idle' });
+                const demoAgents = [
+                    { id: 'bit', name: 'Bit', role: 'assistant', agent_type: 'permanent', color: '#4A90D9', shape: 'sphere', status: 'idle', expertise: ['coding', 'general'] },
+                    { id: 'architect', name: 'Architect', role: 'system_design', agent_type: 'permanent', color: '#9B59B6', shape: 'octahedron', status: 'idle', expertise: ['system_design', 'api_design', 'data_modeling'] },
+                    { id: 'ops', name: 'Ops', role: 'operations_reliability', agent_type: 'permanent', color: '#27AE60', shape: 'dodecahedron', status: 'idle', expertise: ['ci_cd', 'kubernetes', 'monitoring'] },
+                    { id: 'testing', name: 'Testing', role: 'quality_assurance', agent_type: 'permanent', color: '#E67E22', shape: 'icosahedron', status: 'idle', expertise: ['test_automation', 'unit_testing', 'e2e_testing'] },
+                    { id: 'security', name: 'Security', role: 'security_review', agent_type: 'permanent', color: '#E74C3C', shape: 'tetrahedron', status: 'idle', expertise: ['vulnerability_analysis', 'auth', 'secure_coding'] }
+                ];
+                for (const agent of demoAgents) {
+                    addAgent(agent);
+                }
             }
         }, 3000);
     </script>

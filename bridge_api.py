@@ -12,6 +12,7 @@ Handles:
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Dict, Set, Optional
 from dataclasses import dataclass, asdict
@@ -19,6 +20,7 @@ from enum import Enum
 
 import websockets
 from websockets.server import WebSocketServerProtocol
+import yaml
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -49,6 +51,8 @@ class Agent:
     current_task: Optional[str] = None
     last_activity: Optional[str] = None
     message_preview: Optional[str] = None
+    persona: Optional[str] = None
+    expertise: Optional[list] = None
 
 
 @dataclass  
@@ -64,24 +68,42 @@ class AgentRegistry:
     
     def __init__(self):
         self.agents: Dict[str, Agent] = {}
-        self.colors = [
-            "#4A90D9",  # Blue - Bit/main
-            "#7B68EE",  # Purple - coding agent
-            "#20B2AA",  # Teal - research agent
-            "#FF6B6B",  # Coral - alerts/notifications
-            "#FFD93D",  # Yellow - file ops
-            "#6BCB77",  # Green - web search
-            "#FF8C42",  # Orange - general tasks
-        ]
-        self.color_idx = 0
+        self.profiles = {}
         
-    def register(self, agent_id: str, name: str, role: str, agent_type: AgentType = AgentType.EPHEMERAL) -> Agent:
-        color = self.colors[self.color_idx % len(self.colors)]
-        self.color_idx += 1
+    def load_profiles(self, profiles_path: str):
+        """Load agent profiles from YAML file"""
+        if os.path.exists(profiles_path):
+            with open(profiles_path, 'r') as f:
+                self.profiles = yaml.safe_load(f)
+            logger.info(f"Loaded {len(self.profiles)} agent profiles")
+        else:
+            logger.warning(f"Profiles file not found: {profiles_path}")
+    
+    def register_from_profile(self, profile_key: str) -> Optional[Agent]:
+        """Register an agent from a profile"""
+        if profile_key not in self.profiles:
+            return None
         
-        # Pick shape based on role
-        shape = self._role_to_shape(role)
+        p = self.profiles[profile_key]
+        agent_type = AgentType(p.get('agent_type', 'permanent'))
         
+        agent = Agent(
+            id=p['id'] if 'id' in p else profile_key,
+            name=p['name'],
+            role=p['role'],
+            agent_type=agent_type,
+            status=AgentStatus.IDLE,
+            color=p['color'],
+            shape=p['shape'],
+            persona=p.get('persona'),
+            expertise=p.get('expertise', [])
+        )
+        self.agents[agent.id] = agent
+        return agent
+    
+    def register(self, agent_id: str, name: str, role: str, agent_type: AgentType = AgentType.EPHEMERAL,
+                 color: str = "#4A90D9", shape: str = "sphere") -> Agent:
+        """Register a new agent"""
         agent = Agent(
             id=agent_id,
             name=name,
@@ -93,20 +115,6 @@ class AgentRegistry:
         )
         self.agents[agent_id] = agent
         return agent
-    
-    def _role_to_shape(self, role: str) -> str:
-        """Map roles to geometric shapes"""
-        role_lower = role.lower()
-        if "code" in role_lower or "coder" in role_lower:
-            return "octahedron"
-        elif "search" in role_lower or "research" in role_lower:
-            return "icosahedron"  
-        elif "file" in role_lower or "docs" in role_lower:
-            return "dodecahedron"
-        elif "alert" in role_lower or "notify" in role_lower:
-            return "tetrahedron"
-        else:
-            return "sphere"  # default
     
     def update(self, agent_id: str, **kwargs) -> Optional[Agent]:
         if agent_id not in self.agents:
@@ -130,46 +138,47 @@ class AgentRegistry:
 class BridgeAPI:
     """Main bridge - manages WebSocket connections and OpenClaw integration"""
     
-    def __init__(self, port: int = 8765):
+    def __init__(self, port: int = 8765, profiles_dir: str = None):
         self.port = port
         self.registry = AgentRegistry()
         self.clients: Set[WebSocketServerProtocol] = set()
         self.running = False
         
-        # Pre-register permanent agents (Bit and core roles)
+        # Load profiles
+        if profiles_dir is None:
+            profiles_dir = os.path.join(os.path.dirname(__file__), 'profiles')
+        profiles_path = os.path.join(profiles_dir, 'Agent-profiles.yaml')
+        self.registry.load_profiles(profiles_path)
+        
+        # Pre-register permanent agents
         self._register_permanent_agents()
     
     def _register_permanent_agents(self):
-        """Register core/always-visible agents"""
-        # Bit - main assistant
+        """Register core/always-visible agents from profiles"""
+        
+        # Register specialized profiles
+        profile_map = {
+            'architect': 'architect',
+            'ops': 'ops', 
+            'testing': 'testing',
+            'security': 'security'
+        }
+        
+        for key, profile_key in profile_map.items():
+            agent = self.registry.register_from_profile(profile_key)
+            if agent:
+                logger.info(f"Registered agent: {agent.name} ({agent.role})")
+        
+        # Also keep Bit as the main assistant
         bit = self.registry.register(
-            agent_id="bit-main",
+            agent_id="bit",
             name="Bit",
             role="assistant",
-            agent_type=AgentType.PERMANENT
+            agent_type=AgentType.PERMANENT,
+            color="#4A90D9",
+            shape="sphere"
         )
-        bit.color = "#4A90D9"  # Blue
-        bit.shape = "sphere"
-        
-        # Code specialist
-        coder = self.registry.register(
-            agent_id="coder",
-            name="Coder", 
-            role="coding",
-            agent_type=AgentType.PERMANENT
-        )
-        coder.color = "#7B68EE"  # Purple
-        coder.shape = "octahedron"
-        
-        # Research specialist
-        researcher = self.registry.register(
-            agent_id="researcher",
-            name="Researcher",
-            role="research",
-            agent_type=AgentType.PERMANENT
-        )
-        researcher.color = "#20B2AA"  # Teal
-        researcher.shape = "icosahedron"
+        logger.info(f"Registered agent: {bit.name} ({bit.role})")
     
     async def broadcast(self, message: dict):
         """Send message to all connected clients"""
@@ -216,13 +225,15 @@ class BridgeAPI:
                 await websocket.send(json.dumps({"type": "pong"}))
                 
             elif msg_type == "command":
-                # Commands from Unity to agents
                 await self._handle_command(data)
                 
             elif msg_type == "subscribe_agent":
-                # Unity wants to subscribe to specific agent updates
                 agent_id = data.get("agent_id")
                 logger.info(f"Client subscribed to agent: {agent_id}")
+                
+            elif msg_type == "message":
+                # Send message to a specific agent
+                await self._handle_agent_message(data)
                 
         except json.JSONDecodeError:
             logger.error(f"Invalid JSON: {message}")
@@ -234,10 +245,9 @@ class BridgeAPI:
         command = data.get("command")
         target = data.get("target")
         
-        # For now, just log - actual execution via OpenClaw
         logger.info(f"Command: {command} -> {target}")
         
-        # TODO: Integrate with OpenClaw sessions_send or similar
+        # Broadcast that we received the command
         await self.broadcast({
             "type": "command_ack",
             "data": {
@@ -246,57 +256,115 @@ class BridgeAPI:
                 "status": "received"
             }
         })
+        
+        # Update agent status to show activity
+        if target:
+            agent = self.registry.get(target)
+            if agent:
+                agent.status = AgentStatus.THINKING
+                agent.current_task = f"Handling: {command}"
+                await self.broadcast_event(AgentEvent(
+                    event_type="agent_updated",
+                    timestamp=datetime.utcnow().isoformat(),
+                    agent=agent
+                ))
+                
+                # Simulate some work
+                await asyncio.sleep(2)
+                
+                agent.status = AgentStatus.IDLE
+                agent.current_task = None
+                await self.broadcast_event(AgentEvent(
+                    event_type="agent_complete",
+                    timestamp=datetime.utcnow().isoformat(),
+                    agent=agent,
+                    details="Command acknowledged"
+                ))
     
-    async def simulate_agent_activity(self):
-        """Simulate some agent activity for demo purposes"""
+    async def _handle_agent_message(self, data: dict):
+        """Handle message to a specific agent"""
+        target = data.get("target")
+        message = data.get("message", "")
+        
+        agent = self.registry.get(target)
+        if not agent:
+            logger.warning(f"Message to unknown agent: {target}")
+            return
+        
+        agent.status = AgentStatus.THINKING
+        agent.message_preview = message[:50] + "..." if len(message) > 50 else message
+        await self.broadcast_event(AgentEvent(
+            event_type="agent_updated",
+            timestamp=datetime.utcnow().isoformat(),
+            agent=agent
+        ))
+        
+        # Simulate processing
+        await asyncio.sleep(1)
+        
+        agent.status = AgentStatus.WORKING
+        agent.current_task = "Processing..."
+        await self.broadcast_event(AgentEvent(
+            event_type="agent_updated",
+            timestamp=datetime.utcnow().isoformat(),
+            agent=agent
+        ))
+    
+    async def simulate_activity(self):
+        """Simulate some activity for demo purposes"""
         import random
         
+        # Only simulate ephemeral agents
+        ephemeral_roles = ['file-ops', 'web-search', 'data-analysis']
+        
         while self.running:
-            await asyncio.sleep(random.uniform(3, 8))
+            await asyncio.sleep(random.uniform(5, 12))
             
-            # Pick a random ephemeral agent
             agents = self.registry.list_all()
             ephemeral = [a for a in agents if a.agent_type == AgentType.EPHEMERAL]
             
             if not ephemeral:
-                continue
-            
-            agent = random.choice(ephemeral)
-            
-            # Update status
-            agent.status = AgentStatus.WORKING
-            agent.current_task = f"Processing task {random.randint(100, 999)}"
-            agent.message_preview = "Thinking..."
-            
-            await self.broadcast_event(AgentEvent(
-                event_type="agent_updated",
-                timestamp=datetime.utcnow().isoformat(),
-                agent=agent
-            ))
-            
-            await asyncio.sleep(2)
-            
-            # Complete
-            agent.status = AgentStatus.IDLE
-            agent.current_task = None
-            agent.message_preview = None
-            
-            await self.broadcast_event(AgentEvent(
-                event_type="agent_complete",
-                timestamp=datetime.utcnow().isoformat(),
-                agent=agent,
-                details="Task finished"
-            ))
+                # Spawn a demo ephemeral agent
+                colors = ['#FF8C42', '#FFD93D', '#6BCB77']
+                shapes = ['dodecahedron', 'tetrahedron', 'icosahedron']
+                idx = random.randint(0, 2)
+                
+                new_agent = self.registry.register(
+                    agent_id=f"ephem-{datetime.utcnow().timestamp()}",
+                    name=f"Worker-{random.randint(1, 99)}",
+                    role=ephemeral_roles[idx],
+                    agent_type=AgentType.EPHEMERAL,
+                    color=colors[idx],
+                    shape=shapes[idx]
+                )
+                
+                await self.broadcast_event(AgentEvent(
+                    event_type="agent_spawned",
+                    timestamp=datetime.utcnow().isoformat(),
+                    agent=new_agent
+                ))
+                
+                await asyncio.sleep(3)
+                
+                # Remove ephemeral after a bit
+                self.registry.remove(new_agent.id)
+                await self.broadcast_event(AgentEvent(
+                    event_type="agent_complete",
+                    timestamp=datetime.utcnow().isoformat(),
+                    agent=new_agent,
+                    details="Task complete"
+                ))
     
     async def start(self):
         """Start the WebSocket server"""
         self.running = True
         
-        # Broadcast init state to show permanent agents
-        asyncio.create_task(self.simulate_agent_activity())
+        # Start demo activity simulation
+        asyncio.create_task(self.simulate_activity())
         
         async with websockets.serve(self._handle_connection, "0.0.0.0", self.port):
             logger.info(f"Bridge API running on ws://0.0.0.0:{self.port}")
+            logger.info(f"Agents: {[a.name for a in self.registry.list_all()]}")
             await asyncio.Future()  # Run forever
     
     async def _handle_connection(self, websocket: WebSocketServerProtocol, path: str):
