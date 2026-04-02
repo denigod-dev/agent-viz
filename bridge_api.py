@@ -147,7 +147,7 @@ class BridgeAPI:
         # Load profiles
         if profiles_dir is None:
             profiles_dir = os.path.join(os.path.dirname(__file__), 'profiles')
-        profiles_path = os.path.join(profiles_dir, 'Agent-profiles.yaml')
+        profiles_path = os.path.join(profiles_dir, 'agent-profiles.yaml')
         self.registry.load_profiles(profiles_path)
         
         # Pre-register permanent agents
