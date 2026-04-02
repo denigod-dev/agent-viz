@@ -1,8 +1,10 @@
 """
 Agent Viz Bridge API
-Connects OpenClaw to Unity/Web frontend via WebSocket
+Connects OpenClaw to Unity/Web frontend via WebSocket + HTTP
 
 Handles:
+- WebSocket connections from Unity/Web frontend
+- HTTP endpoint for OpenClaw agents to POST events
 - Subscribes to OpenClaw agent events
 - Translates to Unity-friendly JSON format  
 - Manages active agent registry
@@ -18,8 +20,8 @@ from typing import Dict, Set, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
 
-import websockets
-from websockets.server import WebSocketServerProtocol
+from aiohttp import web
+
 import yaml
 
 logging.basicConfig(level=logging.INFO)
@@ -53,6 +55,8 @@ class Agent:
     message_preview: Optional[str] = None
     persona: Optional[str] = None
     expertise: Optional[list] = None
+    provider: Optional[str] = None
+    model: Optional[str] = None
 
 
 @dataclass  
@@ -136,12 +140,13 @@ class AgentRegistry:
 
 
 class BridgeAPI:
-    """Main bridge - manages WebSocket connections and OpenClaw integration"""
+    """Main bridge - manages WebSocket + HTTP connections and OpenClaw integration"""
     
-    def __init__(self, port: int = 8765, profiles_dir: str = None):
-        self.port = port
+    def __init__(self, ws_port: int = 8765, http_port: int = 8766, profiles_dir: str = None):
+        self.ws_port = ws_port
+        self.http_port = http_port
         self.registry = AgentRegistry()
-        self.clients: Set[WebSocketServerProtocol] = set()
+        self.ws_clients: Set = set()
         self.running = False
         
         # Load profiles
@@ -180,60 +185,74 @@ class BridgeAPI:
         )
         logger.info(f"Registered agent: {bit.name} ({bit.role})")
     
-    async def broadcast(self, message: dict):
-        """Send message to all connected clients"""
-        if not self.clients:
+    # ==================== WEBSOCKET HANDLING ====================
+    
+    async def ws_broadcast(self, message: dict):
+        """Send message to all connected WebSocket clients"""
+        if not self.ws_clients:
             return
         data = json.dumps(message)
         await asyncio.gather(
-            *[client.send(data) for client in self.clients],
+            *[client.send(data) for client in self.ws_clients],
             return_exceptions=True
         )
     
+    def _serialize_event(self, event: AgentEvent) -> dict:
+        """Serialize an agent event to dict"""
+        return {
+            'event_type': event.event_type,
+            'timestamp': event.timestamp,
+            'agent': self._serialize_agent(event.agent),
+            'details': event.details
+        }
+    
     async def broadcast_event(self, event: AgentEvent):
         """Broadcast an agent event to all clients"""
-        await self.broadcast({
+        await self.ws_broadcast({
             "type": "agent_event",
-            "data": asdict(event)
+            "data": self._serialize_event(event)
         })
     
-    async def register_client(self, websocket: WebSocketServerProtocol):
-        """Register a new client connection"""
-        self.clients.add(websocket)
-        logger.info(f"Client connected. Total: {len(self.clients)}")
+    async def ws_handle_connection(self, ws):
+        """Handle new WebSocket client connection"""
+        self.ws_clients.add(ws)
+        logger.info(f"WebSocket client connected. Total: {len(self.ws_clients)}")
         
         # Send current state to new client
-        await websocket.send(json.dumps({
+        await ws.send(json.dumps({
             "type": "init",
             "data": {
-                "agents": [asdict(a) for a in self.registry.list_all()]
+                "agents": [self._serialize_agent(a) for a in self.registry.list_all()]
             }
         }))
+        
+        try:
+            async for msg in ws:
+                await self.ws_handle_message(ws, msg)
+        except Exception as e:
+            logger.error(f"WebSocket error: {e}")
+        finally:
+            self.ws_clients.discard(ws)
+            logger.info(f"WebSocket client disconnected. Total: {len(self.ws_clients)}")
     
-    async def unregister_client(self, websocket: WebSocketServerProtocol):
-        """Remove a client connection"""
-        self.clients.discard(websocket)
-        logger.info(f"Client disconnected. Total: {len(self.clients)}")
-    
-    async def handle_message(self, websocket: WebSocketServerProtocol, message: str):
-        """Handle incoming message from Unity/web client"""
+    async def ws_handle_message(self, ws, message: str):
+        """Handle incoming WebSocket message"""
         try:
             data = json.loads(message)
             msg_type = data.get("type")
             
             if msg_type == "ping":
-                await websocket.send(json.dumps({"type": "pong"}))
+                await ws.send(json.dumps({"type": "pong"}))
                 
             elif msg_type == "command":
                 await self._handle_command(data)
                 
+            elif msg_type == "message":
+                await self._handle_agent_message(data)
+                
             elif msg_type == "subscribe_agent":
                 agent_id = data.get("agent_id")
                 logger.info(f"Client subscribed to agent: {agent_id}")
-                
-            elif msg_type == "message":
-                # Send message to a specific agent
-                await self._handle_agent_message(data)
                 
         except json.JSONDecodeError:
             logger.error(f"Invalid JSON: {message}")
@@ -247,8 +266,7 @@ class BridgeAPI:
         
         logger.info(f"Command: {command} -> {target}")
         
-        # Broadcast that we received the command
-        await self.broadcast({
+        await self.ws_broadcast({
             "type": "command_ack",
             "data": {
                 "command": command,
@@ -269,7 +287,6 @@ class BridgeAPI:
                     agent=agent
                 ))
                 
-                # Simulate some work
                 await asyncio.sleep(2)
                 
                 agent.status = AgentStatus.IDLE
@@ -299,7 +316,6 @@ class BridgeAPI:
             agent=agent
         ))
         
-        # Simulate processing
         await asyncio.sleep(1)
         
         agent.status = AgentStatus.WORKING
@@ -310,11 +326,143 @@ class BridgeAPI:
             agent=agent
         ))
     
+    # ==================== HTTP ENDPOINT (for OpenClaw) ====================
+    
+    async def http_handle_event(self, request):
+        """
+        HTTP endpoint for OpenClaw agents to POST events.
+        
+        POST /events
+        Content-Type: application/json
+        
+        {
+            "event_type": "agent_spawned|agent_updated|agent_complete|agent_error",
+            "agent": {
+                "id": "unique-agent-id",
+                "name": "Agent Name",
+                "role": "role-name",
+                "status": "idle|thinking|working|complete|error",
+                "current_task": "optional task description",
+                "message_preview": "optional output preview",
+                "provider": "openclaw|claude|codex",
+                "model": "model-name"
+            },
+            "details": "optional details string"
+        }
+        """
+        try:
+            data = await request.json()
+            
+            event_type = data.get('event_type')
+            agent_data = data.get('agent')
+            details = data.get('details')
+            
+            if not event_type or not agent_data:
+                return web.json_response({
+                    'error': 'Missing event_type or agent data'
+                }, status=400)
+            
+            # Convert string status to enum
+            status_str = agent_data.get('status', 'idle')
+            try:
+                status = AgentStatus(status_str)
+            except ValueError:
+                status = AgentStatus.IDLE
+            
+            # Register or update agent
+            agent_id = agent_data.get('id')
+            existing = self.registry.get(agent_id)
+            
+            if existing:
+                # Update existing agent
+                self.registry.update(agent_id,
+                    status=status,
+                    current_task=agent_data.get('current_task'),
+                    message_preview=agent_data.get('message_preview'),
+                    last_activity=datetime.utcnow().isoformat()
+                )
+                agent = self.registry.get(agent_id)
+            else:
+                # Register new agent from OpenClaw
+                agent_type_str = agent_data.get('agent_type', 'ephemeral')
+                agent_type = AgentType.PERMANENT if agent_type_str == 'permanent' else AgentType.EPHEMERAL
+                
+                agent = self.registry.register(
+                    agent_id=agent_id,
+                    name=agent_data.get('name', agent_id),
+                    role=agent_data.get('role', 'unknown'),
+                    agent_type=agent_type,
+                    color=agent_data.get('color', '#888888'),
+                    shape=agent_data.get('shape', 'sphere')
+                )
+                agent.status = status
+                agent.current_task = agent_data.get('current_task')
+                agent.message_preview = agent_data.get('message_preview')
+                agent.provider = agent_data.get('provider', 'openclaw')
+                agent.model = agent_data.get('model')
+            
+            # Broadcast event to WebSocket clients
+            event = AgentEvent(
+                event_type=event_type,
+                timestamp=datetime.utcnow().isoformat(),
+                agent=agent,
+                details=details
+            )
+            await self.broadcast_event(event)
+            
+            logger.info(f"Received and broadcasted event: {event_type} for agent {agent_id}")
+            
+            return web.json_response({
+                'status': 'ok',
+                'event_type': event_type,
+                'agent_id': agent_id
+            })
+            
+        except json.JSONDecodeError:
+            return web.json_response({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            logger.error(f"Error handling event: {e}")
+            return web.json_response({'error': str(e)}, status=500)
+    
+    def _serialize_agent(self, agent: Agent) -> dict:
+        """Serialize an agent to dict, converting enums to strings"""
+        return {
+            'id': agent.id,
+            'name': agent.name,
+            'role': agent.role,
+            'agent_type': agent.agent_type.value if isinstance(agent.agent_type, AgentType) else agent.agent_type,
+            'status': agent.status.value if isinstance(agent.status, AgentStatus) else agent.status,
+            'color': agent.color,
+            'shape': agent.shape,
+            'current_task': agent.current_task,
+            'last_activity': agent.last_activity,
+            'message_preview': agent.message_preview,
+            'persona': agent.persona,
+            'expertise': agent.expertise,
+            'provider': agent.provider,
+            'model': agent.model
+        }
+    
+    async def http_handle_list_agents(self, request):
+        """HTTP endpoint to list all agents"""
+        return web.json_response({
+            'agents': [self._serialize_agent(a) for a in self.registry.list_all()]
+        })
+    
+    async def http_handle_health(self, request):
+        """Health check endpoint"""
+        return web.json_response({
+            'status': 'ok',
+            'ws_clients': len(self.ws_clients),
+            'agents': len(self.registry.list_all())
+        })
+    
+    # ==================== MAIN ====================
+    
     async def simulate_activity(self):
         """Simulate some activity for demo purposes"""
         import random
         
-        # Only simulate ephemeral agents
         ephemeral_roles = ['file-ops', 'web-search', 'data-analysis']
         
         while self.running:
@@ -324,7 +472,6 @@ class BridgeAPI:
             ephemeral = [a for a in agents if a.agent_type == AgentType.EPHEMERAL]
             
             if not ephemeral:
-                # Spawn a demo ephemeral agent
                 colors = ['#FF8C42', '#FFD93D', '#6BCB77']
                 shapes = ['dodecahedron', 'tetrahedron', 'icosahedron']
                 idx = random.randint(0, 2)
@@ -346,7 +493,6 @@ class BridgeAPI:
                 
                 await asyncio.sleep(3)
                 
-                # Remove ephemeral after a bit
                 self.registry.remove(new_agent.id)
                 await self.broadcast_event(AgentEvent(
                     event_type="agent_complete",
@@ -356,30 +502,63 @@ class BridgeAPI:
                 ))
     
     async def start(self):
-        """Start the WebSocket server"""
+        """Start both WebSocket server and HTTP server"""
         self.running = True
         
         # Start demo activity simulation
         asyncio.create_task(self.simulate_activity())
         
-        async with websockets.serve(self._handle_connection, "0.0.0.0", self.port):
-            logger.info(f"Bridge API running on ws://0.0.0.0:{self.port}")
-            logger.info(f"Agents: {[a.name for a in self.registry.list_all()]}")
-            await asyncio.Future()  # Run forever
+        # Create aiohttp app
+        app = web.Application()
+        app.router.add_post('/events', self.http_handle_event)
+        app.router.add_get('/agents', self.http_handle_list_agents)
+        app.router.add_get('/health', self.http_handle_health)
+        
+        # Start HTTP server
+        http_runner = web.AppRunner(app)
+        await http_runner.setup()
+        http_site = web.TCPSite(http_runner, '0.0.0.0', self.http_port)
+        await http_site.start()
+        logger.info(f"HTTP API running on http://0.0.0.0:{self.http_port}")
+        
+        # Start WebSocket server
+        ws_app = web.Application()
+        ws_app.router.add_get('/ws', self._ws_handler)
+        
+        ws_runner = web.AppRunner(ws_app)
+        await ws_runner.setup()
+        ws_site = web.TCPSite(ws_runner, '0.0.0.0', self.ws_port)
+        await ws_site.start()
+        logger.info(f"WebSocket server running on ws://0.0.0.0:{self.ws_port}")
+        
+        logger.info(f"Bridge API running - WS on port {self.ws_port}, HTTP on port {self.http_port}")
+        logger.info(f"Agents: {[a.name for a in self.registry.list_all()]}")
+        
+        await asyncio.Future()  # Run forever
     
-    async def _handle_connection(self, websocket: WebSocketServerProtocol, path: str):
-        await self.register_client(websocket)
-        try:
-            async for message in websocket:
-                await self.handle_message(websocket, message)
-        except websockets.exceptions.ConnectionClosed:
-            pass
-        finally:
-            await self.unregister_client(websocket)
+    async def _ws_handler(self, request):
+        """Handle WebSocket upgrade requests"""
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        await self.ws_handle_connection(ws)
+        return ws
+    
+    async def stop(self):
+        """Stop the servers"""
+        self.running = False
 
 
 def main():
-    bridge = BridgeAPI(port=8765)
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Agent Viz Bridge API')
+    parser.add_argument('--ws-port', type=int, default=8765, help='WebSocket port (default: 8765)')
+    parser.add_argument('--http-port', type=int, default=8766, help='HTTP port for OpenClaw events (default: 8766)')
+    parser.add_argument('--profiles-dir', type=str, default=None, help='Directory containing agent profiles')
+    args = parser.parse_args()
+    
+    bridge = BridgeAPI(ws_port=args.ws_port, http_port=args.http_port, profiles_dir=args.profiles_dir)
+    
     try:
         asyncio.run(bridge.start())
     except KeyboardInterrupt:
